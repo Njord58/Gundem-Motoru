@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gündem Motoru</title>
+<style>
+:root {
+  --bg0: #0d0d0f; --bg1: #141416; --bg2: #1c1c1f; --bg3: #242428;
+  --border: #2a2a2f; --text1: #e8e8ec; --text2: #9898a6; --text3: #5a5a6a;
+  --accent: #6366f1; --accent-dim: #3f4193; --green: #22c55e; --red: #ef4444;
+  --radius: 10px; --sidebar-w: 200px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: var(--font); background: var(--bg0); color: var(--text1); font-size: 14px; line-height: 1.5; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font: inherit; color: inherit; }
+input { font: inherit; color: inherit; background: none; border: none; outline: none; }
+img { display: block; max-width: 100%; }
+ul { list-style: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* Üst çubuk */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 48px; background: var(--bg1); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; padding: 0 16px;
+}
+#topbar .logo { font-weight: 600; font-size: 15px; letter-spacing: -0.02em; }
+#topbar .logo span { color: var(--accent); }
+#topbar .spacer { flex: 1; }
+#durum-nokta { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); transition: background .4s; }
+#durum-nokta.aktif { background: var(--green); }
+#durum-nokta.hata { background: var(--red); }
+#hamburger { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; color: var(--text2); }
+#hamburger:hover { background: var(--bg3); }
+#hamburger svg { width: 20px; height: 20px; }
+
+/* Ana yerleşim */
+#layout { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100vh; padding-top: 48px; }
+
+/* Kenar çubuğu */
+#sidebar { background: var(--bg1); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
+#sidebar-icerik { padding: 12px 8px; flex: 1; }
+.sidebar-baslik { font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; padding: 6px 8px 10px; }
+.kat-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--text2); transition: background .15s, color .15s; user-select: none; }
+.kat-item:hover { background: var(--bg3); color: var(--text1); }
+.kat-item.aktif { background: var(--accent-dim); color: var(--text1); }
+.kat-renk { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.kat-isim { flex: 1; font-size: 13px; }
+.kat-sayi { font-size: 11px; color: var(--text3); background: var(--bg3); padding: 1px 6px; border-radius: 20px; }
+
+/* Sağ içerik */
+#icerik { display: flex; flex-direction: column; overflow: hidden; background: var(--bg0); }
+
+/* Filtre çubuğu */
+#filtre-bar { padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); background: var(--bg1); flex-shrink: 0; }
+#filtre-bar .baslik { font-size: 15px; font-weight: 600; flex: 1; }
+.zaman-sec { display: flex; gap: 4px; }
+.zaman-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--text2); transition: background .15s, color .15s; }
+.zaman-btn:hover { background: var(--bg3); color: var(--text1); }
+.zaman-btn.aktif { background: var(--accent-dim); color: var(--text1); }
+#yt-toggle-btn { padding: 4px 12px; border-radius: 6px; font-size: 12px; background: var(--bg3); color: var(--text2); transition: background .15s, color .15s; }
+#yt-toggle-btn:hover, #yt-toggle-btn.aktif { background: var(--accent-dim); color: var(--text1); }
+
+/* Haber listesi */
+#haberler-konteyner { flex: 1; overflow-y: auto; padding: 12px 16px; }
+#haberler-listesi { display: flex; flex-direction: column; gap: 8px; }
+.haber-kart { display: grid; grid-template-columns: 1fr 96px; gap: 12px; padding: 14px; background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color .15s, background .15s; cursor: pointer; }
+.haber-kart:hover { border-color: var(--accent-dim); background: var(--bg2); }
+.haber-kart.okundu { opacity: .55; }
+.haber-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.haber-kaynak { font-size: 11px; font-weight: 500; color: var(--accent); letter-spacing: .03em; }
+.haber-zaman { font-size: 11px; color: var(--text3); }
+.haber-kategori-etiket { font-size: 10px; font-weight: 500; padding: 1px 7px; border-radius: 20px; background: var(--bg3); color: var(--text2); margin-left: auto; }
+.haber-baslik { font-size: 14px; font-weight: 600; color: var(--text1); line-height: 1.4; margin-bottom: 5px; }
+.haber-ozet { font-size: 13px; color: var(--text2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.haber-gorsel { width: 96px; height: 72px; border-radius: 8px; overflow: hidden; flex-shrink: 0; align-self: start; background: var(--bg3); }
+.haber-gorsel img { width: 100%; height: 100%; object-fit: cover; }
+.haber-gorsel-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: var(--text3); }
+.bos-mesaj { text-align: center; color: var(--text3); padding: 60px 20px; font-size: 14px; }
+
+/* YouTube alanı */
+#yt-alan { border-top: 1px solid var(--border); background: var(--bg1); overflow-y: auto; flex-shrink: 0; max-height: 52vh; display: none; }
+#yt-alan.goster { display: block; }
+#yt-alan-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 4px; }
+#yt-alan-baslik { font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; }
+#yt-duzenle-btn { font-size: 12px; color: var(--accent); padding: 3px 10px; border-radius: 6px; border: 1px solid var(--accent-dim); transition: background .15s; }
+#yt-duzenle-btn:hover { background: var(--accent-dim); color: #fff; }
+#yt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; padding: 8px 16px 14px; }
+.yt-slot { position: relative; padding-top: 56.25%; background: var(--bg2); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.yt-slot iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.yt-slot-bos { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text3); font-size: 12px; cursor: pointer; }
+.yt-slot-bos:hover { background: var(--bg3); }
+.yt-slot-kapsayici { display: flex; flex-direction: column; gap: 4px; }
+.yt-slot-link-bar { display: flex; align-items: center; gap: 6px; padding: 4px 2px; }
+.yt-slot-link-text { flex: 1; font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.yt-slot-link-input { flex: 1; font-size: 11px; color: var(--text1); background: var(--bg3); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 8px; display: none; }
+.yt-slot-link-input.goster { display: block; }
+.yt-slot-link-text.gizli { display: none; }
+.yt-duzenle-mini { font-size: 10px; color: var(--accent); padding: 2px 7px; border-radius: 5px; border: 1px solid var(--accent-dim); white-space: nowrap; flex-shrink: 0; }
+.yt-duzenle-mini:hover { background: var(--accent-dim); color: #fff; }
+.yt-kaydet-mini { font-size: 10px; color: #fff; background: var(--accent); padding: 2px 7px; border-radius: 5px; display: none; white-space: nowrap; flex-shrink: 0; }
+.yt-kaydet-mini.goster { display: block; }
+
+/* ── Odak modu (bir kanala tıklayınca) ──────────────────────── */
+#yt-alan.odak-modu {
+  max-height: none;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+#yt-alan.odak-modu #yt-alan-header,
+#yt-alan.odak-modu #yt-grid { display: none; }
+
+#odak-konteyner {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+}
+#yt-alan.odak-modu #odak-konteyner { display: flex; width: 100%; }
+
+/* Sol panel: haberler (odak modunda) */
+#odak-haberler {
+  width: 320px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg0);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#odak-haberler-header {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+#odak-haberler-baslik { font-size: 12px; font-weight: 600; color: var(--text2); }
+#odak-geri-btn {
+  font-size: 12px; color: var(--accent);
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 6px;
+  transition: background .15s;
+}
+#odak-geri-btn:hover { background: var(--bg3); }
+#odak-geri-btn svg { width: 14px; height: 14px; }
+#odak-haberler-liste { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.odak-haber-kart {
+  padding: 10px; background: var(--bg1); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; transition: border-color .15s;
+}
+.odak-haber-kart:hover { border-color: var(--accent-dim); }
+.odak-haber-baslik { font-size: 12px; font-weight: 600; line-height: 1.4; margin-bottom: 3px; }
+.odak-haber-meta { font-size: 10px; color: var(--text3); }
+
+/* Sağ panel: video alanı */
+#odak-video-alan {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0;
+}
+#odak-ana-video {
+  flex: 1; position: relative; background: var(--bg2);
+  min-height: 0;
+}
+#odak-ana-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+#odak-ana-baslik {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  background: rgba(0,0,0,.6); color: #fff; font-size: 12px;
+  padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);
+}
+#odak-alt-sira {
+  flex-shrink: 0; height: 110px;
+  display: flex; gap: 6px; padding: 8px;
+  background: var(--bg1); border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+.odak-alt-slot {
+  position: relative; flex: 1; min-width: 140px;
+  border-radius: 8px; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg2);
+  transition: border-color .15s;
+}
+.odak-alt-slot:hover { border-color: var(--accent); }
+.odak-alt-slot iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; pointer-events: none; }
+.odak-alt-slot-isim {
+  position: absolute; bottom: 4px; left: 6px; z-index: 2;
+  background: rgba(0,0,0,.65); color: #fff; font-size: 10px;
+  padding: 2px 6px; border-radius: 4px;
+}
+
+@media (max-width: 767px) {
+  #odak-haberler { width: 0; display: none; }
+  #odak-alt-sira { height: 70px; }
+  .odak-alt-slot { min-width: 90px; }
+}
+
+/* Kanal seçici */
+.kanal-liste { display: flex; flex-direction: column; gap: 5px; max-height: 340px; overflow-y: auto; margin-bottom: 12px; }
+.kanal-ayrac { font-size: 11px; color: var(--text3); padding: 8px 0 2px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
+.kanal-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: var(--bg3); cursor: pointer; border: 1px solid transparent; transition: border-color .15s; }
+.kanal-item:hover { border-color: var(--accent-dim); }
+.kanal-item.secili { border-color: var(--accent); background: var(--accent-dim); }
+.kanal-item-isim { flex: 1; font-size: 13px; }
+.kanal-item-check { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--text3); flex-shrink: 0; transition: background .15s, border-color .15s; }
+.kanal-item.secili .kanal-item-check { background: var(--accent); border-color: var(--accent); }
+.ozel-url-alani { margin-top: 4px; }
+
+/* Modal */
+#modal-arkaplan { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+#modal-arkaplan.goster { display: flex; }
+#modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; }
+.modal-baslik { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.modal-input { width: 100%; padding: 9px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text1); font-size: 13px; transition: border-color .15s; display: block; margin-bottom: 10px; }
+.modal-input:focus { border-color: var(--accent); }
+.modal-aksiyonlar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-birincil { background: var(--accent); color: #fff; }
+.btn-ikincil { background: var(--bg3); color: var(--text2); }
+.btn-tehlike { background: var(--red); color: #fff; }
+
+/* Yükleniyor */
+#yuklenme { position: fixed; inset: 0; z-index: 300; background: var(--bg0); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+#yuklenme .spinner { width: 32px; height: 32px; border: 3px solid var(--bg3); border-top-color: var(--accent); border-radius: 50%; animation: don 0.7s linear infinite; }
+@keyframes don { to { transform: rotate(360deg); } }
+#yuklenme p { color: var(--text2); font-size: 13px; }
+#yuklenme.gizli { display: none; }
+
+/* Toast */
+#toast { position: fixed; bottom: 20px; right: 20px; z-index: 400; background: var(--bg2); border: 1px solid var(--border); color: var(--text1); padding: 10px 16px; border-radius: 10px; font-size: 13px; transform: translateY(80px); opacity: 0; transition: transform .25s, opacity .25s; pointer-events: none; }
+#toast.goster { transform: translateY(0); opacity: 1; }
+
+/* Mobil tab bar */
+#mobil-tabbar { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--bg1); border-top: 1px solid var(--border); height: 52px; }
+#mobil-tabbar ul { display: flex; height: 100%; }
+#mobil-tabbar li { flex: 1; display: flex; align-items: center; justify-content: center; }
+#mobil-tabbar button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--text3); padding: 4px; border-radius: 6px; transition: color .15s; width: 100%; }
+#mobil-tabbar button.aktif { color: var(--accent); }
+#mobil-tabbar button svg { width: 20px; height: 20px; }
+
+/* Responsive */
+@media (max-width: 1023px) { :root { --sidebar-w: 180px; } }
+@media (max-width: 767px) {
+  #hamburger { display: flex; }
+  #layout { grid-template-columns: 1fr; }
+  #sidebar { position: fixed; top: 48px; left: 0; bottom: 52px; z-index: 90; width: 220px; transform: translateX(-100%); transition: transform .25s; border-right: 1px solid var(--border); }
+  #sidebar.acik { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.5); }
+  #sidebar-ortu { display: none; position: fixed; inset: 0; z-index: 85; background: rgba(0,0,0,.4); }
+  #sidebar-ortu.goster { display: block; }
+  #mobil-tabbar { display: flex; }
+  #icerik { padding-bottom: 52px; }
+  #yt-toggle-btn { display: none; }
+  #yt-alan { max-height: 60vw; }
+  #yt-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 8px; }
+  .haber-gorsel { width: 80px; height: 60px; }
+  .haber-kart { grid-template-columns: 1fr 80px; gap: 8px; padding: 12px; }
+}
+@media (max-width: 480px) {
+  .haber-gorsel { display: none; }
+  .haber-kart { grid-template-columns: 1fr; }
+  #yt-grid { grid-template-columns: 1fr; }
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+</style>
+</head>
+<body>
+
+<div id="yuklenme"><div class="spinner"></div><p>Haberler yükleniyor…</p></div>
+<div id="toast" role="alert" aria-live="polite"></div>
+
+<header id="topbar">
+  <button id="hamburger" aria-label="Menüyü aç" onclick="sidebarToggle()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+  <div class="logo">Gündem <span>Motoru</span></div>
+  <div class="spacer"></div>
+  <div id="durum-nokta" title="Bağlantı durumu"></div>
+</header>
+
+<div id="sidebar-ortu" onclick="sidebarKapat()"></div>
+
+<div id="layout">
+  <nav id="sidebar" aria-label="Kategoriler">
+    <div id="sidebar-icerik">
+      <div class="sidebar-baslik">Kategoriler</div>
+      <ul id="kat-listesi"></ul>
+
+    </div>
+  </nav>
+
+  <main id="icerik">
+    <div id="filtre-bar">
+      <h1 class="baslik" id="aktif-kat-baslik">Tümü</h1>
+      <div class="zaman-sec" role="group" aria-label="Zaman filtresi">
+        <button class="zaman-btn aktif" data-saat="24" onclick="zamanSec(this)">24s</button>
+        <button class="zaman-btn" data-saat="48" onclick="zamanSec(this)">48s</button>
+        <button class="zaman-btn" data-saat="72" onclick="zamanSec(this)">72s</button>
+      </div>
+      <button id="yt-toggle-btn" onclick="ytToggle()">▶ Canlı</button>
+    </div>
+
+    <div id="haberler-konteyner" role="main">
+      <ul id="haberler-listesi" aria-label="Haber listesi"></ul>
+    </div>
+
+    <div id="yt-alan" aria-label="Canlı yayınlar">
+      <div id="yt-alan-header">
+        <span id="yt-alan-baslik">Canlı Yayınlar</span>
+        <button id="yt-duzenle-btn" onclick="modalAc('yt-duzenle')">Kanalları Düzenle</button>
+      </div>
+      <div id="yt-grid"></div>
+
+      <!-- Odak modu yapısı -->
+      <div id="odak-konteyner">
+        <aside id="odak-haberler">
+          <div id="odak-haberler-header">
+            <span id="odak-haberler-baslik">Haberler</span>
+            <button id="odak-geri-btn" onclick="odakKapat()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              Izgaraya dön
+            </button>
+          </div>
+          <div id="odak-haberler-liste"></div>
+        </aside>
+        <div id="odak-video-alan">
+          <div id="odak-ana-video">
+            <span id="odak-ana-baslik"></span>
+          </div>
+          <div id="odak-alt-sira"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<nav id="mobil-tabbar" aria-label="Sekmeler">
+  <ul>
+    <li><button class="aktif" id="tab-haberler" onclick="mobilTab('haberler')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      Haberler
+    </button></li>
+    <li><button id="tab-canli" onclick="mobilTab('canli')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Canlı
+    </button></li>
+    <li><button id="tab-kategoriler" onclick="mobilTab('kategoriler')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Kategoriler
+    </button></li>
+  </ul>
+</nav>
+
+<div id="modal-arkaplan" role="dialog" aria-modal="true" aria-labelledby="modal-baslik-el">
+  <div id="modal">
+    <h2 class="modal-baslik" id="modal-baslik-el"></h2>
+    <div id="modal-govde"></div>
+    <div class="modal-aksiyonlar" id="modal-aksiyonlar"></div>
+  </div>
+</div>
+
+<script>
+// ── Sabit kanal listesi ────────────────────────────────────────
+const HAZIR_KANALLAR = [
+  { isim: 'NTV',          url: 'https://www.youtube.com/watch?v=pqq5c6k70kk' },
+  { isim: 'CNN Türk',     url: 'https://www.youtube.com/watch?v=6N8_r2uwLEc' },
+  { isim: 'Sözcü TV',     url: 'https://www.youtube.com/watch?v=ztmY_cCtUl0' },
+  { isim: 'Habertürk',    url: 'https://www.youtube.com/watch?v=RNVNlJSUFoE' },
+  { isim: 'Haber Global', url: 'https://www.youtube.com/watch?v=EqoCJ8BPxtE' },
+  { isim: 'TV100',        url: 'https://www.youtube.com/watch?v=ebVRSmBYC60' },
+  { isim: 'Ulusal Kanal', url: 'https://www.youtube.com/watch?v=Gcxjxhbhk8' },
+  { isim: 'TVNET',        url: 'https://www.youtube.com/watch?v=Z5bqy4gwEmc' },
+];
+
+// ── Durum ──────────────────────────────────────────────────────
+const D = {
+  haberler: [], kategoriler: [], ytSlotlar: [],
+  aktifKat: 'Tümü', aktifSaat: 24, ytAcik: false, sseConn: null,
+};
+
+// ── Yardımcılar ────────────────────────────────────────────────
+function toast(mesaj, sure = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = mesaj;
+  el.classList.add('goster');
+  setTimeout(() => el.classList.remove('goster'), sure);
+}
+function zamanFormat(ts) {
+  const f = Math.floor((Date.now() / 1000) - ts);
+  if (f < 60) return 'şimdi';
+  if (f < 3600) return Math.floor(f / 60) + 'dk';
+  if (f < 86400) return Math.floor(f / 3600) + 's';
+  return Math.floor(f / 86400) + 'g';
+}
+function ilkHarf(str) { return (str || '?')[0].toUpperCase(); }
+function html(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+// ── API ────────────────────────────────────────────────────────
+async function apiFetch(yol, opts = {}) {
+  const r = await fetch(yol, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── Kategori renk yardımcısı ──────────────────────────────────
+function katRenk(isim) {
+  const kat = D.kategoriler.find(k => k.isim === isim);
+  return kat ? kat.renk : '#5a5a6a';
+}
+
+// ── Başlangıç ─────────────────────────────────────────────────
+async function baslat() {
+  try {
+    const [haberler, kategoriler, ytSlotlar] = await Promise.all([
+      apiFetch(`/api/haberler?saat=${D.aktifSaat}&limit=100`),
+      apiFetch('/api/kategoriler'),
+      apiFetch('/api/youtube/kanallar'),
+    ]);
+    D.haberler = haberler;
+    D.kategoriler = kategoriler;
+
+    // Eğer hiç slot yoksa default kanalları yükle
+    if (!ytSlotlar || ytSlotlar.length === 0) {
+      const defaults = HAZIR_KANALLAR.slice(0, 8);
+      await apiFetch('/api/youtube/kanal-guncelle', {
+        method: 'POST',
+        body: JSON.stringify({ slotlar: defaults }),
+      });
+      D.ytSlotlar = defaults;
+    } else {
+      D.ytSlotlar = ytSlotlar;
+    }
+
+    katListeRender();
+    haberlerRender();
+    ytGridRender();
+    sseBaslat();
+  } catch (e) {
+    console.error(e);
+    toast('Bağlantı hatası', 4000);
+  } finally {
+    document.getElementById('yuklenme').classList.add('gizli');
+  }
+}
+
+// ── SSE ────────────────────────────────────────────────────────
+function sseBaslat() {
+  if (D.sseConn) D.sseConn.close();
+  const es = new EventSource('/api/stream');
+  D.sseConn = es;
+  es.addEventListener('baglandi', () => { document.getElementById('durum-nokta').className = 'aktif'; });
+  es.addEventListener('yeni_haber', e => {
+    try {
+      const haber = JSON.parse(e.data);
+      D.haberler.unshift(haber);
+      if (D.aktifKat === 'Tümü' || haber.kategori === D.aktifKat) haberEkleDOM(haber, true);
+      katSayilariGuncelle();
+      if (_odakIndex !== -1) odakHaberlerRender();
+    } catch (_) {}
+  });
+  es.onerror = () => {
+    document.getElementById('durum-nokta').className = 'hata';
+    es.close();
+    setTimeout(sseBaslat, 10000);
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      es.close();
+      document.getElementById('durum-nokta').className = '';
+    } else {
+      sseBaslat();
+      haberleriYenile();
+    }
+  });
+}
+
+// ── Kategoriler ────────────────────────────────────────────────
+function katListeRender() {
+  const ul = document.getElementById('kat-listesi');
+  ul.innerHTML = '';
+  const tumSayi = D.haberler.length;
+  ul.appendChild(katItemOlustur('Tümü', '#6366f1', tumSayi, D.aktifKat === 'Tümü'));
+  D.kategoriler.forEach(kat => {
+    const sayi = D.haberler.filter(h => h.kategori === kat.isim).length;
+    ul.appendChild(katItemOlustur(kat.isim, kat.renk, sayi, D.aktifKat === kat.isim, kat.id));
+  });
+}
+function katItemOlustur(isim, renk, sayi, aktif, id = null) {
+  const li = document.createElement('li');
+  li.innerHTML = `<div class="kat-item ${aktif ? 'aktif' : ''}" onclick="katSec('${html(isim)}')">
+    <span class="kat-renk" style="background:${html(renk)}"></span>
+    <span class="kat-isim">${html(isim)}</span>
+    <span class="kat-sayi">${sayi}</span>
+  </div>`;
+  return li;
+}
+function katSayilariGuncelle() { katListeRender(); }
+function katSec(isim) {
+  D.aktifKat = isim;
+  document.getElementById('aktif-kat-baslik').textContent = isim;
+  katListeRender();
+  haberlerRender();
+  sidebarKapat();
+}
+
+// ── Haberler ───────────────────────────────────────────────────
+function filtreliHaberler() {
+  return D.aktifKat === 'Tümü' ? D.haberler : D.haberler.filter(h => h.kategori === D.aktifKat);
+}
+function haberlerRender() {
+  const liste = document.getElementById('haberler-listesi');
+  liste.innerHTML = '';
+  const haberler = filtreliHaberler();
+  if (!haberler.length) { liste.innerHTML = '<li class="bos-mesaj">Bu kategoride haber bulunamadı.</li>'; return; }
+  haberler.forEach(h => liste.appendChild(haberKartOlustur(h)));
+}
+function haberEkleDOM(haber, uste = false) {
+  const liste = document.getElementById('haberler-listesi');
+  const bos = liste.querySelector('.bos-mesaj');
+  if (bos) bos.remove();
+  const kart = haberKartOlustur(haber);
+  if (uste) liste.prepend(kart); else liste.appendChild(kart);
+}
+function haberKartOlustur(h) {
+  const li = document.createElement('li');
+  li.dataset.id = h.id;
+  const gorsel = h.gorsel_url
+    ? `<div class="haber-gorsel"><img src="${html(h.gorsel_url)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\"haber-gorsel-placeholder\\">${ilkHarf(h.kaynak)}</div>'"></div>`
+    : `<div class="haber-gorsel"><div class="haber-gorsel-placeholder">${ilkHarf(h.kaynak)}</div></div>`;
+  li.innerHTML = `<article class="haber-kart ${h.okundu ? 'okundu' : ''}" onclick="haberAc(${h.id}, '${html(h.url)}')" role="article">
+    <div>
+      <div class="haber-meta">
+        <span class="haber-kaynak">${html(h.kaynak || '')}</span>
+        <span class="haber-zaman">${zamanFormat(h.eklenme_ts)}</span>
+        <span class="haber-kategori-etiket" style="background:${katRenk(h.kategori)}22;color:${katRenk(h.kategori)}">${html(h.kategori)}</span>
+      </div>
+      <div class="haber-baslik">${html(h.baslik)}</div>
+      ${h.ozet && h.ozet !== h.baslik ? `<div class="haber-ozet">${html(h.ozet)}</div>` : ''}
+    </div>
+    ${gorsel}
+  </article>`;
+  return li;
+}
+function haberAc(id, url) {
+  apiFetch('/api/icerik/okundu-isaretle', { method: 'POST', body: JSON.stringify({ id }) }).catch(() => {});
+  const kart = document.querySelector(`[data-id="${id}"] .haber-kart`);
+  if (kart) kart.classList.add('okundu');
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// ── Zaman filtresi ─────────────────────────────────────────────
+function zamanSec(btn) {
+  document.querySelectorAll('.zaman-btn').forEach(b => b.classList.remove('aktif'));
+  btn.classList.add('aktif');
+  D.aktifSaat = parseInt(btn.dataset.saat);
+  haberleriYenile();
+}
+async function haberleriYenile() {
+  try {
+    const kat = D.aktifKat !== 'Tümü' ? `&kategori=${encodeURIComponent(D.aktifKat)}` : '';
+    D.haberler = await apiFetch(`/api/haberler?saat=${D.aktifSaat}&limit=100${kat}`);
+    haberlerRender();
+    katListeRender();
+  } catch (e) { console.error(e); }
+}
+
+// ── YouTube ────────────────────────────────────────────────────
+function ytToggle() {
+  D.ytAcik = !D.ytAcik;
+  document.getElementById('yt-alan').classList.toggle('goster', D.ytAcik);
+  document.getElementById('yt-toggle-btn').classList.toggle('aktif', D.ytAcik);
+}
+
+function ytVideoId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0];
+    const v = u.searchParams.get('v');
+    if (v) return v;
+    const parts = u.pathname.split('/');
+    const idx = parts.findIndex(p => ['live', 'shorts', 'embed'].includes(p));
+    if (idx !== -1) return parts[idx + 1];
+  } catch (_) {}
+  return null;
+}
+
+function ytGridRender() {
+  const grid = document.getElementById('yt-grid');
+  grid.innerHTML = '';
+  D.ytSlotlar.forEach((slot, i) => {
+    const kapsayici = document.createElement('div');
+    kapsayici.className = 'yt-slot-kapsayici';
+
+    const slotDiv = document.createElement('div');
+    slotDiv.className = 'yt-slot';
+
+    if (slot && slot.url) {
+      const vid = ytVideoId(slot.url);
+      if (vid) {
+        slotDiv.innerHTML = `<iframe
+          src="https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&rel=0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen loading="lazy"
+          title="${html(slot.baslik || slot.url)}"></iframe>`;
+        // Tıklayınca odak moduna geç (iframe üstüne şeffaf katman)
+        const odakKatman = document.createElement('div');
+        odakKatman.style.cssText = 'position:absolute;inset:0;cursor:pointer;z-index:1;background:transparent;';
+        odakKatman.title = 'Büyüt';
+        odakKatman.onclick = () => odakAc(i);
+        slotDiv.style.position = 'relative';
+        slotDiv.appendChild(odakKatman);
+      } else {
+        slotDiv.innerHTML = `<div class="yt-slot-bos" onclick="ytLinkDuzenle(${i})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;opacity:.4"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Geçersiz link — düzeltmek için tıkla
+        </div>`;
+      }
+    } else {
+      slotDiv.innerHTML = `<div class="yt-slot-bos" onclick="ytLinkDuzenle(${i})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;opacity:.4"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Kanal ekle
+      </div>`;
+    }
+
+    kapsayici.appendChild(slotDiv);
+
+    // Alt link barı
+    const linkBar = document.createElement('div');
+    linkBar.className = 'yt-slot-link-bar';
+    const linkUrl = slot?.url || '';
+    const linkIsim = slot?.baslik || linkUrl;
+    linkBar.innerHTML = `
+      <span class="yt-slot-link-text" id="yt-link-text-${i}" title="${html(linkUrl)}">${html(linkIsim || 'Kanal yok')}</span>
+      <input class="yt-slot-link-input" id="yt-link-input-${i}" value="${html(linkUrl)}" placeholder="YouTube linki yapıştır...">
+      <button class="yt-duzenle-mini" id="yt-duzenle-${i}" onclick="ytLinkDuzenle(${i})">Düzenle</button>
+      <button class="yt-kaydet-mini" id="yt-kaydet-${i}" onclick="ytLinkKaydet(${i})">Kaydet</button>`;
+    kapsayici.appendChild(linkBar);
+    grid.appendChild(kapsayici);
+  });
+
+  // Boş slot yoksa en alta "Kanal ekle" butonu
+  const ekleDiv = document.createElement('div');
+  ekleDiv.className = 'yt-slot-kapsayici';
+  ekleDiv.innerHTML = `<div class="yt-slot" style="cursor:pointer" onclick="modalAc('yt-duzenle')">
+    <div class="yt-slot-bos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;opacity:.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Tüm kanalları düzenle
+    </div>
+  </div>`;
+  grid.appendChild(ekleDiv);
+}
+
+// ── Odak modu ──────────────────────────────────────────────────
+let _odakIndex = -1;
+
+function odakAc(i) {
+  const slot = D.ytSlotlar[i];
+  if (!slot || !slot.url) return;
+  const vid = ytVideoId(slot.url);
+  if (!vid) return;
+
+  _odakIndex = i;
+
+  // Ana videoyu yerleştir
+  const anaVideo = document.getElementById('odak-ana-video');
+  anaVideo.innerHTML = `<span id="odak-ana-baslik">${html(slot.baslik || '')}</span>
+    <iframe src="https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&rel=0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen title="${html(slot.baslik || '')}"></iframe>`;
+
+  // Alt sırayı diğer kanallarla doldur
+  const altSira = document.getElementById('odak-alt-sira');
+  altSira.innerHTML = '';
+  D.ytSlotlar.forEach((s, idx) => {
+    if (idx === i || !s || !s.url) return;
+    const svid = ytVideoId(s.url);
+    if (!svid) return;
+    const div = document.createElement('div');
+    div.className = 'odak-alt-slot';
+    div.onclick = () => odakAc(idx);
+    div.innerHTML = `<iframe src="https://www.youtube.com/embed/${svid}?mute=1&rel=0" allow="autoplay; encrypted-media" loading="lazy"></iframe>
+      <span class="odak-alt-slot-isim">${html(s.baslik || '')}</span>`;
+    altSira.appendChild(div);
+  });
+
+  // Sol panel haberleri doldur
+  odakHaberlerRender();
+
+  document.getElementById('yt-alan').classList.add('odak-modu');
+}
+
+function odakKapat() {
+  _odakIndex = -1;
+  document.getElementById('yt-alan').classList.remove('odak-modu');
+  document.getElementById('odak-ana-video').innerHTML = '<span id="odak-ana-baslik"></span>';
+  document.getElementById('odak-alt-sira').innerHTML = '';
+  ytGridRender(); // iframe'leri yeniden başlat
+}
+
+function odakHaberlerRender() {
+  const liste = document.getElementById('odak-haberler-liste');
+  liste.innerHTML = '';
+  const haberler = D.haberler.slice(0, 30);
+  if (!haberler.length) {
+    liste.innerHTML = '<div class="bos-mesaj" style="padding:30px 10px">Haber yok</div>';
+    return;
+  }
+  haberler.forEach(h => {
+    const div = document.createElement('div');
+    div.className = 'odak-haber-kart';
+    div.onclick = () => haberAc(h.id, h.url);
+    div.innerHTML = `
+      <div class="odak-haber-baslik">${html(h.baslik)}</div>
+      <div class="odak-haber-meta">${html(h.kaynak || '')} · ${zamanFormat(h.eklenme_ts)}</div>`;
+    liste.appendChild(div);
+  });
+}
+
+function ytLinkDuzenle(i) {
+  document.getElementById(`yt-link-text-${i}`)?.classList.add('gizli');
+  document.getElementById(`yt-link-input-${i}`)?.classList.add('goster');
+  document.getElementById(`yt-duzenle-${i}`)?.style.setProperty('display', 'none');
+  document.getElementById(`yt-kaydet-${i}`)?.classList.add('goster');
+  document.getElementById(`yt-link-input-${i}`)?.focus();
+}
+
+async function ytLinkKaydet(i) {
+  const input = document.getElementById(`yt-link-input-${i}`);
+  const url = input?.value.trim() || '';
+
+  if (url && !/youtube\.com|youtu\.be/.test(url)) {
+    toast('Sadece YouTube linkleri eklenebilir');
+    return;
+  }
+
+  const yeniSlotlar = [...D.ytSlotlar];
+  while (yeniSlotlar.length <= i) yeniSlotlar.push({ url: '', baslik: '' });
+  yeniSlotlar[i] = { url, baslik: yeniSlotlar[i]?.baslik || '' };
+
+  try {
+    await apiFetch('/api/youtube/kanal-guncelle', {
+      method: 'POST',
+      body: JSON.stringify({ slotlar: yeniSlotlar }),
+    });
+    D.ytSlotlar = yeniSlotlar;
+    ytGridRender();
+    toast('Kaydedildi');
+  } catch (e) {
+    toast('Hata: ' + e.message);
+  }
+}
+
+// ── Modal ──────────────────────────────────────────────────────
+let _modalVeri = {};
+
+function modalAc(tip, veri = {}) {
+  _modalVeri = { tip, ...veri };
+  const arkaplan = document.getElementById('modal-arkaplan');
+  const baslik = document.getElementById('modal-baslik-el');
+  const govde = document.getElementById('modal-govde');
+  const aksiyonlar = document.getElementById('modal-aksiyonlar');
+
+  if (tip === 'kat-ekle') {
+    baslik.textContent = 'Kategori Ekle';
+    govde.innerHTML = `
+      <input class="modal-input" id="kat-isim-input" placeholder="Kategori adı" maxlength="50">
+      <input class="modal-input" id="kat-renk-input" type="color" value="#6366f1" style="height:40px;padding:4px 8px;">`;
+    aksiyonlar.innerHTML = `
+      <button class="btn btn-ikincil" onclick="modalKapat()">İptal</button>
+      <button class="btn btn-birincil" onclick="kategoriEkleKaydet()">Ekle</button>`;
+    setTimeout(() => document.getElementById('kat-isim-input')?.focus(), 50);
+
+  } else if (tip === 'yt-duzenle') {
+    baslik.textContent = 'Canlı Kanalları Düzenle';
+
+    // Seçili kanalları belirle
+    const seciliUrller = new Set(D.ytSlotlar.map(s => s?.url).filter(Boolean));
+
+    let listeHtml = '<div class="kanal-liste">';
+    listeHtml += '<div class="kanal-ayrac">Hazır Kanallar</div>';
+    HAZIR_KANALLAR.forEach((k, i) => {
+      const secili = seciliUrller.has(k.url);
+      listeHtml += `<div class="kanal-item ${secili ? 'secili' : ''}" data-idx="${i}" onclick="ytKanalToggle(this, ${i})">
+        <span class="kanal-item-isim">${html(k.isim)}</span>
+        <span class="kanal-item-check"></span>
+      </div>`;
+    });
+    listeHtml += '<div class="kanal-ayrac" style="margin-top:8px">Özel Link Ekle</div>';
+    listeHtml += `<div class="ozel-url-alani">
+      <input class="modal-input" id="ozel-url" placeholder="https://youtube.com/watch?v=..." maxlength="200">
+      <input class="modal-input" id="ozel-baslik" placeholder="Kanal adı (isteğe bağlı)" maxlength="100">
+      <button class="btn btn-ikincil" style="width:100%" onclick="ozelUrlEkle()">+ Ekle</button>
+    </div>`;
+    listeHtml += '</div>';
+
+    govde.innerHTML = listeHtml;
+    aksiyonlar.innerHTML = `
+      <button class="btn btn-ikincil" onclick="modalKapat()">İptal</button>
+      <button class="btn btn-birincil" onclick="ytKanallarKaydet()">Kaydet</button>`;
+  }
+
+  arkaplan.classList.add('goster');
+}
+
+function modalKapat() {
+  document.getElementById('modal-arkaplan').classList.remove('goster');
+}
+document.getElementById('modal-arkaplan').addEventListener('click', e => {
+  if (e.target === e.currentTarget) modalKapat();
+});
+
+// Kanal toggle
+function ytKanalToggle(el, idx) {
+  el.classList.toggle('secili');
+}
+
+// Özel URL listesine ekle
+function ozelUrlEkle() {
+  const url = document.getElementById('ozel-url')?.value.trim();
+  const isim = document.getElementById('ozel-baslik')?.value.trim() || url;
+  if (!url) return toast('URL boş olamaz');
+  if (!/youtube\.com|youtu\.be/.test(url)) return toast('Sadece YouTube linkleri eklenebilir');
+
+  // Listeye yeni item olarak ekle (hazır kanallar dışında)
+  const liste = document.querySelector('.kanal-liste');
+  const item = document.createElement('div');
+  item.className = 'kanal-item secili';
+  item.dataset.ozelUrl = url;
+  item.dataset.ozelIsim = isim;
+  item.innerHTML = `<span class="kanal-item-isim">${html(isim)}</span><span class="kanal-item-check"></span>`;
+  item.onclick = () => item.classList.toggle('secili');
+  liste.insertBefore(item, liste.querySelector('.ozel-url-alani').parentElement || liste.lastElementChild);
+  document.getElementById('ozel-url').value = '';
+  document.getElementById('ozel-baslik').value = '';
+  toast('Eklendi, kaydetmeyi unutma');
+}
+
+// Kaydet
+async function ytKanallarKaydet() {
+  const slotlar = [];
+
+  // Hazır kanallardan seçilenleri al
+  document.querySelectorAll('.kanal-item[data-idx].secili').forEach(el => {
+    const idx = parseInt(el.dataset.idx);
+    slotlar.push(HAZIR_KANALLAR[idx]);
+  });
+
+  // Özel URL'leri al
+  document.querySelectorAll('.kanal-item[data-ozel-url].secili').forEach(el => {
+    slotlar.push({ url: el.dataset.ozelUrl, baslik: el.dataset.ozelIsim });
+  });
+
+  if (slotlar.length === 0) return toast('En az bir kanal seç');
+  if (slotlar.length > 12) return toast('En fazla 12 kanal eklenebilir');
+
+  try {
+    await apiFetch('/api/youtube/kanal-guncelle', {
+      method: 'POST',
+      body: JSON.stringify({ slotlar }),
+    });
+    D.ytSlotlar = slotlar;
+    ytGridRender();
+    modalKapat();
+    toast(`${slotlar.length} kanal kaydedildi`);
+  } catch (e) {
+    toast('Hata: ' + e.message);
+  }
+}
+
+async function kategoriEkleKaydet() {
+  const isim = document.getElementById('kat-isim-input')?.value.trim();
+  const renk = document.getElementById('kat-renk-input')?.value;
+  if (!isim) return toast('İsim zorunlu');
+  try {
+    await apiFetch('/api/kategoriler/ekle', { method: 'POST', body: JSON.stringify({ isim, renk }) });
+    D.kategoriler = await apiFetch('/api/kategoriler');
+    katListeRender();
+    modalKapat();
+    toast('Kategori eklendi');
+  } catch (e) { toast('Hata: ' + e.message); }
+}
+
+// ── Sidebar mobil ──────────────────────────────────────────────
+function sidebarToggle() {
+  const sb = document.getElementById('sidebar');
+  const ortu = document.getElementById('sidebar-ortu');
+  const acik = sb.classList.toggle('acik');
+  ortu.classList.toggle('goster', acik);
+}
+function sidebarKapat() {
+  document.getElementById('sidebar').classList.remove('acik');
+  document.getElementById('sidebar-ortu').classList.remove('goster');
+}
+
+// ── Mobil tab ──────────────────────────────────────────────────
+function mobilTab(tab) {
+  document.querySelectorAll('#mobil-tabbar button').forEach(b => b.classList.remove('aktif'));
+  document.getElementById(`tab-${tab}`)?.classList.add('aktif');
+  const ytAlan = document.getElementById('yt-alan');
+  const hk = document.getElementById('haberler-konteyner');
+  if (tab === 'canli') {
+    hk.style.display = 'none';
+    ytAlan.classList.add('goster');
+    ytAlan.style.maxHeight = 'none';
+    ytAlan.style.flex = '1';
+  } else if (tab === 'kategoriler') {
+    sidebarToggle();
+    document.getElementById('tab-haberler')?.classList.add('aktif');
+    document.getElementById('tab-kategoriler')?.classList.remove('aktif');
+  } else {
+    hk.style.display = '';
+    ytAlan.classList.remove('goster');
+    ytAlan.style.maxHeight = '';
+    ytAlan.style.flex = '';
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') modalKapat(); });
+baslat();
+</script>
+</body>
+</html>

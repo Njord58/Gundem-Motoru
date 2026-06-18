@@ -1,0 +1,49 @@
+groq_model: "llama-3.1-8b-instant"
+# Alternatif: "qwen-qwq-32b"
+
+cors_origins:
+  - "*"
+  # Prodüksiyonda değiştir: ["https://senin-siten.onrender.com"]
+
+rss_interval_minutes: 15
+
+circuit_breaker_threshold: 3
+circuit_breaker_timeout_minutes: 30
+
+duplikasyon_esik: 0.75
+duplikasyon_pencere_saat: 24
+
+haber_max_gun: 30
+
+rss_kaynaklar:
+  - isim: NTV
+    url: https://www.ntv.com.tr/son-dakika.rss
+    aktif: true
+
+  - isim: Bloomberg HT
+    url: https://www.bloomberght.com/rss
+    aktif: true
+
+  - isim: BBC Türkçe
+    url: https://feeds.bbci.co.uk/turkce/rss.xml
+    aktif: true
+
+  - isim: CNN Türk
+    url: https://www.cnnturk.com/feed/rss/all/news
+    aktif: true
+
+  - isim: Sabah
+    url: https://www.sabah.com.tr/rss/anasayfa.xml
+    aktif: true
+
+  - isim: Hürriyet
+    url: https://www.hurriyet.com.tr/rss/anasayfa
+    aktif: true
+
+  - isim: Sözcü
+    url: https://www.sozcu.com.tr/rss/
+    aktif: true
+
+  - isim: Habertürk
+    url: https://www.haberturk.com/rss/anasayfa
+    aktif: true
