@@ -5,7 +5,7 @@ cors_origins:
   - "*"
   # Prodüksiyonda değiştir: ["https://senin-siten.onrender.com"]
 
-rss_interval_minutes: 15
+rss_interval_minutes: 1
 
 circuit_breaker_threshold: 3
 circuit_breaker_timeout_minutes: 30

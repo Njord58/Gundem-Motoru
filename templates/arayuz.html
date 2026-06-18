@@ -300,11 +300,6 @@ ul { list-style: none; }
   <main id="icerik">
     <div id="filtre-bar">
       <h1 class="baslik" id="aktif-kat-baslik">Tümü</h1>
-      <div class="zaman-sec" role="group" aria-label="Zaman filtresi">
-        <button class="zaman-btn aktif" data-saat="24" onclick="zamanSec(this)">24s</button>
-        <button class="zaman-btn" data-saat="48" onclick="zamanSec(this)">48s</button>
-        <button class="zaman-btn" data-saat="72" onclick="zamanSec(this)">72s</button>
-      </div>
       <button id="yt-toggle-btn" onclick="ytToggle()">▶ Canlı</button>
     </div>
 
@@ -383,7 +378,7 @@ const HAZIR_KANALLAR = [
 // ── Durum ──────────────────────────────────────────────────────
 const D = {
   haberler: [], kategoriler: [], ytSlotlar: [],
-  aktifKat: 'Tümü', aktifSaat: 24, ytAcik: false, sseConn: null,
+  aktifKat: 'Tümü', aktifSaat: 168, ytAcik: false, sseConn: null,
 };
 
 // ── Yardımcılar ────────────────────────────────────────────────
