@@ -426,11 +426,12 @@ async function baslat() {
     // Eğer hiç slot yoksa default kanalları yükle
     if (!ytSlotlar || ytSlotlar.length === 0) {
       const defaults = HAZIR_KANALLAR.slice(0, 8);
+      const mappedDefaults = defaults.map(k => ({ url: k.url, baslik: k.isim }));
       await apiFetch('/api/youtube/kanal-guncelle', {
         method: 'POST',
-        body: JSON.stringify({ slotlar: defaults }),
+        body: JSON.stringify({ slotlar: mappedDefaults }),
       });
-      D.ytSlotlar = defaults;
+      D.ytSlotlar = mappedDefaults;
     } else {
       D.ytSlotlar = ytSlotlar;
     }
@@ -846,7 +847,8 @@ async function ytKanallarKaydet() {
   // Hazır kanallardan seçilenleri al
   document.querySelectorAll('.kanal-item[data-idx].secili').forEach(el => {
     const idx = parseInt(el.dataset.idx);
-    slotlar.push(HAZIR_KANALLAR[idx]);
+    const k = HAZIR_KANALLAR[idx];
+    slotlar.push({ url: k.url, baslik: k.isim });
   });
 
   // Özel URL'leri al
