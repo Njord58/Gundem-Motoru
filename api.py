@@ -21,7 +21,6 @@ from core.database import get_db
 from core.logger import get_logger
 from processors.duplikasyon import duplikasyon_filtrele
 from processors.kategori_ayirici import kategori_belirle, ozet_belirle
-from processors.metin_cekici import metin_cek
 
 logger = get_logger("gundem.api")
 
@@ -57,13 +56,9 @@ def haber_isle_ve_kaydet_paralel(haberler: list[dict]) -> int:
             if db.url_var_mi(haber_ham["url"]):
                 return False
 
-            # 1. Metin çek (Trafilatura/Jina)
-            sonuc = metin_cek(haber_ham["url"], haber_ham.get("ozet_ham", ""))
-            metin = sonuc["metin"]
-
-            # 2. Özet ve Kategori belirle (Yerel keyword analizi - AI yok)
-            ozet = ozet_belirle(haber_ham.get("ozet_ham", ""), metin, haber_ham["baslik"])
-            kategori = kategori_belirle(haber_ham["baslik"], metin)
+            # 1. Özet ve Kategori belirle (RSS özetinden doğrudan analiz)
+            ozet = ozet_belirle(haber_ham.get("ozet_ham", ""), "", haber_ham["baslik"])
+            kategori = kategori_belirle(haber_ham["baslik"], haber_ham.get("ozet_ham", ""))
 
             haber = {
                 "baslik": haber_ham["baslik"],
@@ -72,10 +67,10 @@ def haber_isle_ve_kaydet_paralel(haberler: list[dict]) -> int:
                 "gorsel_url": haber_ham.get("gorsel_url"),
                 "kaynak": haber_ham.get("kaynak"),
                 "kategori": kategori,
-                "ai_basarili": 0,  # AI kullanılmadığı için 0
+                "ai_basarili": 0,
             }
 
-            # 3. Veritabanına kaydet
+            # 2. Veritabanına kaydet
             haber_id = db.haber_ekle(haber)
             if haber_id:
                 haber["id"] = haber_id
