@@ -307,7 +307,36 @@ def kategoriler_getir():
     hata = okuma_limiti()
     if hata:
         return hata
-    return jsonify(get_db().kategorileri_getir())
+    try:
+        saat = min(max(int(request.args.get("saat", 24)), 1), 168)
+    except (ValueError, TypeError):
+        saat = 24
+
+    db = get_db()
+    kategoriler = db.kategorileri_getir()
+    
+    since = int(time.time()) - saat * 3600
+    
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT kategori, COUNT(*) as adet FROM icerikler WHERE eklenme_ts >= ? GROUP BY kategori",
+            (since,)
+        )
+        sayilar = {row["kategori"]: row["adet"] for row in cur.fetchall()}
+        
+        cur.execute(
+            "SELECT COUNT(*) as adet FROM icerikler WHERE eklenme_ts >= ?",
+            (since,)
+        )
+        toplam = cur.fetchone()["adet"]
+
+    for k in kategoriler:
+        k["sayi"] = sayilar.get(k["isim"], 0)
+
+    return jsonify({
+        "kategoriler": kategoriler,
+        "toplam": toplam
+    })
 
 
 @app.route("/api/kategoriler/ekle", methods=["POST"])

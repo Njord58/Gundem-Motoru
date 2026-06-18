@@ -106,6 +106,10 @@ ul { list-style: none; }
 .yt-kaydet-mini.goster { display: block; }
 
 /* ── Odak modu (bir kanala tıklayınca) ──────────────────────── */
+#icerik.yt-odak-aktif #filtre-bar,
+#icerik.yt-odak-aktif #haberler-konteyner {
+  display: none !important;
+}
 #yt-alan.odak-modu {
   max-height: none;
   flex: 1;
@@ -415,13 +419,14 @@ function katRenk(isim) {
 // ── Başlangıç ─────────────────────────────────────────────────
 async function baslat() {
   try {
-    const [haberler, kategoriler, ytSlotlar] = await Promise.all([
+    const [haberler, kategorilerData, ytSlotlar] = await Promise.all([
       apiFetch(`/api/haberler?saat=${D.aktifSaat}&limit=100`),
-      apiFetch('/api/kategoriler'),
+      apiFetch(`/api/kategoriler?saat=${D.aktifSaat}`),
       apiFetch('/api/youtube/kanallar'),
     ]);
     D.haberler = haberler;
-    D.kategoriler = kategoriler;
+    D.kategoriler = kategorilerData.kategoriler || kategorilerData;
+    D.toplamHaber = kategorilerData.toplam || haberler.length;
 
     // Eğer hiç slot yoksa default kanalları yükle
     if (!ytSlotlar || ytSlotlar.length === 0) {
@@ -458,6 +463,11 @@ function sseBaslat() {
     try {
       const haber = JSON.parse(e.data);
       D.haberler.unshift(haber);
+      if (D.toplamHaber !== undefined) D.toplamHaber++;
+      const katObj = D.kategoriler.find(k => k.isim === haber.kategori);
+      if (katObj && katObj.sayi !== undefined) {
+        katObj.sayi++;
+      }
       if (D.aktifKat === 'Tümü' || haber.kategori === D.aktifKat) haberEkleDOM(haber, true);
       katSayilariGuncelle();
       if (_odakIndex !== -1) odakHaberlerRender();
@@ -483,10 +493,10 @@ function sseBaslat() {
 function katListeRender() {
   const ul = document.getElementById('kat-listesi');
   ul.innerHTML = '';
-  const tumSayi = D.haberler.length;
+  const tumSayi = D.toplamHaber || D.haberler.length;
   ul.appendChild(katItemOlustur('Tümü', '#6366f1', tumSayi, D.aktifKat === 'Tümü'));
   D.kategoriler.forEach(kat => {
-    const sayi = D.haberler.filter(h => h.kategori === kat.isim).length;
+    const sayi = kat.sayi !== undefined ? kat.sayi : D.haberler.filter(h => h.kategori === kat.isim).length;
     ul.appendChild(katItemOlustur(kat.isim, kat.renk, sayi, D.aktifKat === kat.isim, kat.id));
   });
 }
@@ -563,7 +573,13 @@ function zamanSec(btn) {
 async function haberleriYenile() {
   try {
     const kat = D.aktifKat !== 'Tümü' ? `&kategori=${encodeURIComponent(D.aktifKat)}` : '';
-    D.haberler = await apiFetch(`/api/haberler?saat=${D.aktifSaat}&limit=100${kat}`);
+    const [haberler, kategorilerData] = await Promise.all([
+      apiFetch(`/api/haberler?saat=${D.aktifSaat}&limit=100${kat}`),
+      apiFetch(`/api/kategoriler?saat=${D.aktifSaat}`),
+    ]);
+    D.haberler = haberler;
+    D.kategoriler = kategorilerData.kategoriler || kategorilerData;
+    D.toplamHaber = kategorilerData.toplam || haberler.length;
     haberlerRender();
     katListeRender();
   } catch (e) { console.error(e); }
@@ -572,8 +588,12 @@ async function haberleriYenile() {
 // ── YouTube ────────────────────────────────────────────────────
 function ytToggle() {
   D.ytAcik = !D.ytAcik;
-  document.getElementById('yt-alan').classList.toggle('goster', D.ytAcik);
+  const ytAlan = document.getElementById('yt-alan');
+  ytAlan.classList.toggle('goster', D.ytAcik);
   document.getElementById('yt-toggle-btn').classList.toggle('aktif', D.ytAcik);
+  if (!D.ytAcik && _odakIndex !== -1) {
+    odakKapat();
+  }
 }
 
 function ytVideoId(url) {
@@ -692,11 +712,13 @@ function odakAc(i) {
   odakHaberlerRender();
 
   document.getElementById('yt-alan').classList.add('odak-modu');
+  document.getElementById('icerik').classList.add('yt-odak-aktif');
 }
 
 function odakKapat() {
   _odakIndex = -1;
   document.getElementById('yt-alan').classList.remove('odak-modu');
+  document.getElementById('icerik').classList.remove('yt-odak-aktif');
   document.getElementById('odak-ana-video').innerHTML = '<span id="odak-ana-baslik"></span>';
   document.getElementById('odak-alt-sira').innerHTML = '';
   ytGridRender(); // iframe'leri yeniden başlat
