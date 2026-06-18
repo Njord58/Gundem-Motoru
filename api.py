@@ -518,6 +518,22 @@ def server_error(e):
 #  Başlangıç                                                           #
 # ------------------------------------------------------------------ #
 
+import threading
+
+_baslatildi = False
+_baslatildi_lock = threading.Lock()
+
+
+@app.before_request
+def before_request_init():
+    global _baslatildi
+    if not _baslatildi:
+        with _baslatildi_lock:
+            if not _baslatildi:
+                baslat()
+                _baslatildi = True
+
+
 def baslat():
     db = get_db()
     db.init_db()
@@ -531,17 +547,16 @@ def baslat():
     logger.info("Scheduler başlatıldı.")
 
     # İlk RSS çekimini hemen tetikle
-    import threading
     threading.Thread(target=rss_dongusu, daemon=True).start()
     logger.info("Gündem Motoru başlatıldı.")
 
 
-baslat()
-
 if __name__ == "__main__":
+    baslat()
     app.run(
         host="0.0.0.0",
         port=5000,
         debug=(cfg.flask_env == "development"),
         use_reloader=False,  # Scheduler çift başlamasın
     )
+
