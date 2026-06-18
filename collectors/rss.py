@@ -135,12 +135,28 @@ def _kaynak_cek(kaynak: RssKaynak) -> list[dict]:
                 if enc.get("type", "").startswith("image"):
                     gorsel = enc.get("href")
 
+            # Yayın tarihi
+            yayin_ts = None
+            if entry.get("published_parsed"):
+                try:
+                    yayin_ts = int(time.mktime(entry["published_parsed"]))
+                except Exception:
+                    pass
+            if not yayin_ts and entry.get("updated_parsed"):
+                try:
+                    yayin_ts = int(time.mktime(entry["updated_parsed"]))
+                except Exception:
+                    pass
+            if not yayin_ts:
+                yayin_ts = int(time.time())
+
             haberler.append({
                 "baslik": baslik,
                 "url": url,
                 "ozet_ham": ozet,
                 "gorsel_url": gorsel,
                 "kaynak": isim,
+                "yayin_ts": yayin_ts,
             })
 
         logger.info(f"[{isim}] {len(haberler)} haber alındı.")

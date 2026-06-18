@@ -68,6 +68,7 @@ def haber_isle_ve_kaydet_paralel(haberler: list[dict]) -> int:
                 "kaynak": haber_ham.get("kaynak"),
                 "kategori": kategori,
                 "ai_basarili": 0,
+                "yayin_ts": haber_ham.get("yayin_ts", int(time.time())),
             }
 
             # 2. Veritabanına kaydet

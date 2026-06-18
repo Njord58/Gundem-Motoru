@@ -395,6 +395,16 @@ function zamanFormat(ts) {
   if (f < 86400) return Math.floor(f / 3600) + 's';
   return Math.floor(f / 86400) + 'g';
 }
+function tarihSaatFormat(ts) {
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  const gun = String(d.getDate()).padStart(2, '0');
+  const ay = String(d.getMonth() + 1).padStart(2, '0');
+  const yil = d.getFullYear();
+  const saat = String(d.getHours()).padStart(2, '0');
+  const dakika = String(d.getMinutes()).padStart(2, '0');
+  return `${gun}.${ay}.${yil} ${saat}:${dakika}`;
+}
 function ilkHarf(str) { return (str || '?')[0].toUpperCase(); }
 function html(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
@@ -541,7 +551,7 @@ function haberKartOlustur(h) {
     <div>
       <div class="haber-meta">
         <span class="haber-kaynak">${html(h.kaynak || '')}</span>
-        <span class="haber-zaman">${zamanFormat(h.eklenme_ts)}</span>
+        <span class="haber-zaman">${zamanFormat(h.eklenme_ts)} . ${tarihSaatFormat(h.yayin_ts || h.eklenme_ts)}</span>
         <span class="haber-kategori-etiket" style="background:${katRenk(h.kategori)}22;color:${katRenk(h.kategori)}">${html(h.kategori)}</span>
       </div>
       <div class="haber-baslik">${html(h.baslik)}</div>
@@ -733,7 +743,7 @@ function odakHaberlerRender() {
     div.onclick = () => haberAc(h.id, h.url);
     div.innerHTML = `
       <div class="odak-haber-baslik">${html(h.baslik)}</div>
-      <div class="odak-haber-meta">${html(h.kaynak || '')} · ${zamanFormat(h.eklenme_ts)}</div>`;
+      <div class="odak-haber-meta">${html(h.kaynak || '')} · ${zamanFormat(h.eklenme_ts)} . ${tarihSaatFormat(h.yayin_ts || h.eklenme_ts)}</div>`;
     liste.appendChild(div);
   });
 }

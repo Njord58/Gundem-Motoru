@@ -102,9 +102,15 @@ class Database:
                     kategori    TEXT    DEFAULT 'Gündem',
                     okundu      INTEGER DEFAULT 0,
                     ai_basarili INTEGER DEFAULT 0,
-                    eklenme_ts  INTEGER NOT NULL
+                    eklenme_ts  INTEGER NOT NULL,
+                    yayin_ts    INTEGER
                 )
             """)
+            try:
+                cur.execute("ALTER TABLE icerikler ADD COLUMN yayin_ts INTEGER")
+                logger.info("yayin_ts sütunu mevcut tabloya eklendi.")
+            except Exception:
+                pass
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS kategoriler (
                     id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -158,8 +164,8 @@ class Database:
             with self.cursor() as cur:
                 cur.execute("""
                     INSERT INTO icerikler
-                        (baslik, ozet, url, gorsel_url, kaynak, kategori, ai_basarili, eklenme_ts)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        (baslik, ozet, url, gorsel_url, kaynak, kategori, ai_basarili, eklenme_ts, yayin_ts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     haber["baslik"],
                     haber.get("ozet", haber["baslik"]),
@@ -169,6 +175,7 @@ class Database:
                     haber.get("kategori", "Gündem"),
                     1 if haber.get("ai_basarili") else 0,
                     int(time.time()),
+                    haber.get("yayin_ts", int(time.time())),
                 ))
                 return cur.lastrowid
         except Exception:
